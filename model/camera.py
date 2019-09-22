@@ -1,3 +1,4 @@
+import re
 from types import NoneType
 
 from util.except_handler import ExecptHadler
@@ -44,13 +45,25 @@ class Camera(object):
             self.__connect_state = False
             self.__try_connect = False
             self.__name = ''
+            self.__count_services = 0
+            self.__raw_services = []
             self.__services = {'Analytics': ({'support': False}, {'init': False}, {'run': False}, {'instance': None}),
                                'Device': ({'support': False}, {'init': False}, {'run': False}, {'instance': None}),
+                               'DeviceIO': ({'support': False}, {'init': False}, {'run': False}, {'instance': None}),
                                'Events': ({'support': False}, {'init': False}, {'run': False}, {'instance': None}),
                                'Imaging': ({'support': False}, {'init': False}, {'run': False}, {'instance': None}),
                                'Media': ({'support': False}, {'init': False}, {'run': False}, {'instance': None}),
                                'PTZ': ({'support': False}, {'init': False}, {'run': False}, {'instance': None})
                                }
+            if self.__autoconnect:
+                print "Autoconnect is True"
+                # thread_connect = Thread(target=self.up_connect,
+                #                        name='thread_connect_' + str(self.__host))
+                # thread_connect.start()
+                self.up_connect()
+            else:
+                print "Autoconnect is False"
+
             if self.__loop_mode:
                 print "Loop mode is True"
                 thread_loop = Thread(target=self.loop,
@@ -58,13 +71,7 @@ class Camera(object):
                 thread_loop.start()
             else:
                 print "Loop mode is False"
-                if self.__autoconnect:
-                    print "Autoconnect is True"
-                    thread_connect = Thread(target=self.up_connect,
-                                            name='thread_connect_' + str(self.__host))
-                    thread_connect.start()
-                else:
-                    print "Autoconnect is False"
+
 
     def set_name(self, name):
         self.__name = name
@@ -120,7 +127,7 @@ class Camera(object):
         return self.__services['Device']
 
     def get_events_service(self):
-        return self.__services['Events']
+        return self.__services['Events'][3]['instance']
 
     def get_imaging_service(self):
         return self.__services['Imaging']
@@ -129,7 +136,13 @@ class Camera(object):
         return self.__services['Media']
 
     def get_ptz_service(self):
+        return self.__services['PTZ'][3]['instance']
+
+    def get_ptz_service_full(self):
         return self.__services['PTZ']
+
+    def get_connect_state(self):
+        return self.__connect_state
 
     def up_connect(self):
         i = 1
@@ -148,6 +161,8 @@ class Camera(object):
                     # print 'After connect, Inside connection function camera ' + str(self.__host)
                     self.__connect_state = True
                     self.__try_connect = False
+                    self.__get_raw_services()
+                    self.__get_raw_device_info()
                     # print 'After connect, try_connect: ' + str(self.__try_connect)
                     # print 'After connect, connect_state: ' + str(self.__connect_state)
                     # print 'After connect variable connection: ' + str(self.__connection)
@@ -173,13 +188,6 @@ class Camera(object):
                     self.get_support_service()
                     self.loop_edit_init_sll_services()
                     while True:
-                        # analytics_flag, analytics_service = self.loop_check_instance_service('Analytics')
-                        # device_flag, device_service = self.loop_check_instance_service('Device')
-                        # events_flag, events_service = self.loop_check_instance_service('Events')
-                        # imaging_flag, imaging_service = self.loop_check_instance_service('Imaging')
-                        # media_flag, media_service = self.loop_check_instance_service('Media')
-                        # ptz_flag, ptz_service = self.loop_check_instance_service('PTZ')
-
                         self.loop_check_edit_instance_all_service()
                         #print 'PTZ Service states: ' + str(self.__services['PTZ'])
 
@@ -215,8 +223,12 @@ class Camera(object):
         self.__snapshot_url = snapshot_url_main.Uri
         pass
 
-    @Utils.async_func
     def get_device_info(self):
+        return self.__device_info
+
+
+    #@Utils.async_func
+    def __get_raw_device_info(self):
         i = 1
         while True:
             try:
@@ -268,42 +280,49 @@ class Camera(object):
             if status_var_str == 'support':
                 if support:
                     check_status = True
+                    #print 'PTZ SERVICE CHECK STATUS <SUPPORT> :' + str(check_status)
                     #print 'Service ' + str(name_service) + ' already support'
 
             if status_var_str == 'init':
                 if support and init:
                     check_status = True
+                    #print 'PTZ SERVICE CHECK STATUS <INIT> :' + str(check_status)
                     #print 'Service ' + str(name_service) + ' already init'
 
             if status_var_str == 'run':
                 if init and run:
                     check_status = True
                     #print 'Service ' + str(name_service) + ' already run'
+                    #print 'PTZ SERVICE CHECK STATUS <RUN> :' + str(check_status)
 
             if status_var_str == 'instance':
                 if run and instance is not None:
                     check_status = True
+                    #print 'PTZ SERVICE CHECK STATUS <INSTANCE> :' + str(check_status)
                     #print 'Instance ' + str(name_service) + ' service already exists'
 
         return check_status
 
     def loop_edit_status_abstract_service(self, status, name_service, service_instance=None):
+        #print "Run loop_edit_status_abstract_service(run, Events) from run_abstract_service(Events, persist)"
+        #print 'RUN<> ' + str(name_service) + ' service'
         local_vars = locals()
         local_vars = local_vars.values()
-        # print ('Name of Vars:' + str(local_vars))
+        #print ('Name of Vars:' + str(local_vars))
         status_var_str = local_vars[0]
         name_service_str = local_vars[1]
-        # print 'status name: ' + str(status_var_str)
-        # print 'name service:' + str(name_service_str)
+        #print 'status name: ' + str(status_var_str)
+        #print 'name service:' + str(name_service_str)
         support = self.__services[name_service][0]['support']
-        # print 'support: ' + str(support)
+        #print 'support: ' + str(support)
         init = self.__services[name_service][1]['init']
-        # print 'init: ' + str(init)
+        #print 'init: ' + str(init)
         run = self.__services[name_service][2]['run']
-        # print 'run: ' + str(run)
+        #print 'run: ' + str(run)
         instance = self.__services[name_service][3]['instance']
-        # print 'instance: ' + str(instance)
+        #print 'instance: ' + str(instance)
 
+        #print 'LOOP MODE: ' + str(self.__loop_mode)
         if self.__loop_mode:
             if status_var_str == 'support':
                 if not support:
@@ -321,7 +340,9 @@ class Camera(object):
                 #       print 'Service ' + str(name_service) + ' not support in loop_edit_status_abstract_service, connection_state: ' + str(self.__connect_state)
 
             if status_var_str == 'run':
+                #print "status_var_str == run in loop_edit_status_abstract_service(run, Events)"
                 if init and not run:
+                    #print "inside if init and not run in loop_edit_status_abstract_service(run, Events)"
                     self.__services[name_service][2]['run'] = True
                     #print 'change state run True PTZ in loop_edit_status_abstract_service'
                 #else:
@@ -351,6 +372,10 @@ class Camera(object):
     def loop_check_edit_instance_service(self, name_service):
         run = self.loop_check_status_abstract_service('run', name_service)
         instance = self.loop_check_status_abstract_service('instance', name_service)
+        #print 'NAME PTZ SERVICE BEFORE IF:' + str(name_service)
+        #print 'NAME PTZ SERVICE RUN:' + str(run)
+        #print 'NAME PTZ SERVICE INSTANCE:' + str(instance)
+
         #instance_service = None
         #instance_flag = False
         if run and not instance:
@@ -375,7 +400,9 @@ class Camera(object):
                 self.loop_edit_status_abstract_service('instance', name_service, instance_service)
                 instance_flag = True
             if name_service == 'PTZ':
-                instance_service = PTZ(self, True)
+                #print 'MY<>NAME<>PTZ'
+                instance_service = PTZ(self,0,0,0,20,True,None)
+                #print 'Vse NORM'
                 self.loop_edit_status_abstract_service('instance', name_service, instance_service)
                 instance_flag = True
         #return instance_flag, instance_service
@@ -422,24 +449,51 @@ class Camera(object):
     def loop_edit_init_ptz_service(self):
         self.loop_init_abstract_service('PTZ')
 
+    def __get_raw_services(self):
+        self.__raw_services = self.__connection.devicemgmt.GetServices({'IncludeCapability': False})
+        if type(self.__raw_services) is not None:
+            self.__count_services = len(self.__raw_services)
+
+    def get_raw_services(self):
+        return self.__raw_services
+
+    def get_count_services(self):
+        return self.__count_services
+
+    def get_device_services(self):
+        if self.__count_services != 0:
+            for j in range(self.__count_services):
+                service = self.__raw_services[j].Namespace
+                #print 'support_service[j].Namespace:' + str(self.__raw_services[j].Namespace)
+                result = re.findall(r'http://www.onvif.org/ver[0-9]*/([a-z]*[A-Z]*)/wsdl', str(service))
+                #print 'Result Regexp: ' + result[0]
+                yield str(result[0])
+
+
     #@Utils.async_func
     def get_support_service(self):
         i = 1
         while True:
             try:
                 if isinstance(self.__connection, ONVIFCamera) and self.__connect_state:
-                    support_services = self.__connection.devicemgmt.GetServices({'IncludeCapability': False})
-                    if type(support_services) is not None:
-                        count_service = len(support_services)
-                        for j in range(count_service):
-                            service = support_services[j].XAddr
-                            print 'support_service[j].XAddr:' + str(support_services[j].XAddr)
-                            start_index = str(service).rfind('/') + 1
-                            end_index = len(str(service))
-                            name_service = str(service)[start_index:end_index]
-                            print 'NAME SERVICE:' + str(name_service)
-                            if name_service == 'device_service':
+                    if self.__count_services != 0:
+                        #for j in range(self.__count_services):
+                        for j in self.get_device_services():
+                            name_service = j
+                            if name_service == 'analytics':
+                                name_service = 'Analytics'
+                            if name_service == 'device':
                                 name_service = 'Device'
+                            if name_service == 'events':
+                                name_service = 'Events'
+                            if name_service == 'imaging':
+                                name_service = 'Imaging'
+                            if name_service == 'media':
+                                name_service = 'Media'
+                            if name_service == 'deviceIO':
+                                name_service = 'DeviceIO'
+                            if name_service == 'ptz':
+                                name_service = 'PTZ'
                             self.loop_support_abstract_service(name_service)
                         break
                     else:
@@ -483,7 +537,9 @@ class Camera(object):
 
     @Utils.async_func
     def run_events_service(self, persist=False):
+        #print "run run_events_service from agent.py"
         self.run_abstract_service('Events', persist)
+        #print "after call run_abstract_service(Events, persist) from run_events_service(persist)"
 
     @Utils.async_func
     def run_imaging_service(self, persist=False):
@@ -495,10 +551,12 @@ class Camera(object):
 
     @Utils.async_func
     def run_ptz_service(self, persist=False):
+        print 'run_ptz_service'
         self.run_abstract_service('PTZ', persist)
 
     @Utils.async_func
     def run_abstract_service(self, service_name, persist=False):
+        #print "run run_abstract_service(Events, persist) from run_events_service(self, persist=False)"
         i = 1
         service_instance = None
         while True:
@@ -511,6 +569,7 @@ class Camera(object):
                     if self.__loop_mode:
                         if support and init:
                             #print 'change state run True ' + str(service_name) + ' service'
+                            #print "Call loop_edit_status_abstract_service(run, Events) from run_abstract_service(Events, persist)"
                             self.loop_edit_status_abstract_service('run', service_name)
                     else:
                         print 'Start ' + str(service_name) + ' service'
@@ -527,7 +586,7 @@ class Camera(object):
                         if service_name == 'Media':
                             service_instance = Media(self, persist)
                         if service_name == 'PTZ':
-                            service_instance = PTZ(self, persist)
+                            service_instance = PTZ(self,0,0,0,20,persist,None)
                         if service_instance is not None:
                             self.loop_edit_status_abstract_service('instance', service_name, service_instance)
                             break
@@ -544,3 +603,4 @@ class Camera(object):
                 self.try_connect(i)
                 continue
             i += 1
+
