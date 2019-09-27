@@ -1,5 +1,8 @@
-argparse==1.2.1
+certifi==2019.9.11
+chardet==3.0.4
+idna==2.8
 onvif==0.2.0
+requests==2.22.0
 suds==0.4
 suds-passworddigest==0.1.2
-wsgiref==0.1.2
+urllib3==1.25.6
