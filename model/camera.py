@@ -255,8 +255,20 @@ class Camera(object):
         return self.__device_info
 
     def take_picture(self, daemon=False):
-        resp = requests.get(self.get_snapshot_url(), auth=(self.__user, self.__passwd))
-        return resp  # .content
+        resp = None
+        try:
+            resp = requests.get(self.get_snapshot_url(), auth=(self.__user, self.__passwd))
+        except requests.exceptions.ReadTimeout:
+            print('Oops. Read timeout occured')
+        except requests.exceptions.ConnectTimeout:
+            print('Oops. Connection timeout occured!')
+        except requests.exceptions.ConnectionError:
+            print('Seems like dns lookup failed..')
+        except requests.exceptions.HTTPError as err:
+            print('Oops. HTTP Error occured')
+            print('Response is: {content}'.format(content=err.response.content))
+        finally:
+            return resp  # .content
 
     def loop_check_status_abstract_service(self, status, name_service, service_instance=None):
         local_vars = locals()

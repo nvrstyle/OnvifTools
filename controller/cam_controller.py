@@ -1,4 +1,5 @@
 from util.except_handler import ExecptHadler
+from util.utils import Utils
 from model.camera import Camera
 from threading import Thread
 import datetime
@@ -21,12 +22,17 @@ class CamController(object):
         return CamController.__current_setting
 
     @staticmethod
-    def add_camera(camera):
-        camera.set_name('camera' + str(CamController.cam_count + 1))
-        CamController.__cams[camera.get_host()] = camera
-        CamController.cam_count += 1
+    def add_camera(camera, autoconnect=False, loop_mode = True):
+        host = camera[0]
+        port = camera[1]
+        user = camera[2]
+        passwd = camera[3]
+        new_camera = Camera(host,port, user, passwd, autoconnect, loop_mode)
+        new_camera.set_name('camera' + str(CamController.__cam_count + 1))
+        CamController.__cams[new_camera.get_host()] = new_camera
+        CamController.__cam_count += 1
 
-    @ExecptHadler.safe_func
+    #@ExecptHadler.safe_func
     @staticmethod
     def get_cam(host):
         get_cam = ''
@@ -36,9 +42,9 @@ class CamController(object):
         return get_cam
 
     @staticmethod
-    def load_settings(settingmanager):
+    def load_settings(settingmanager, camera):
         temp_settings = settingmanager.load_setting()
-        Camera.wsdl = temp_settings.get_wsdl_dir()
+        camera.set_wsdl(temp_settings.get_wsdl_dir())
         CamController.__current_setting = temp_settings #temp_settings.get_name()
         CamController.__setting_storage[temp_settings.get_name()] = temp_settings
 
@@ -57,40 +63,44 @@ class CamController(object):
         print 'Thread: ' + th_name + ' start ' + str(datetime.datetime.now())
         snap_cam = CamController.__cams[host]
         snapshot = snap_cam.take_picture()
-        print 'Response with snapshot: ' + str(snapshot)
-        now = datetime.datetime.now()
-        pic_dirs = CamController.__setting_storage[CamController.__current_setting.get_name()].get_pic_dir()
-        for pic_dir in pic_dirs:
-            year = str(now.year)
-            month = str(now.month)
-            day = str(now.day)
-            hour = str(now.hour)
-            lastdir = pic_dir
-            current_dir = os.path.join(lastdir, year)
-            if not os.path.exists(current_dir):
-                os.mkdir(current_dir)
-            lastdir = current_dir
-            current_dir = os.path.join(lastdir, month)
-            if not os.path.exists(current_dir):
-                os.mkdir(current_dir)
-            lastdir = current_dir
-            current_dir = os.path.join(lastdir, day)
-            if not os.path.exists(current_dir):
-                os.mkdir(current_dir)
-            lastdir = current_dir
-            current_dir = os.path.join(lastdir, hour)
-            if not os.path.exists(current_dir):
-                os.mkdir(current_dir)
-            lastdir = current_dir
-            current_dir = os.path.join(lastdir, host)
-            if not os.path.exists(current_dir):
-                os.mkdir(current_dir)
-            out = open(current_dir + os.sep + day + '.' + month + '.' + year + ' ' +
-                       str(now.hour) + '.' + str(now.minute) + '.' + str(now.second)
-                       + ".jpg", "wb")
-            out.write(snapshot.content)
-            out.close()
-            print 'Thread: ' + th_name + ' finish ' + str(datetime.datetime.now())
+        if snapshot is not None:
+            print 'Response with snapshot: ' + str(snapshot)
+            now = datetime.datetime.now()
+            pic_dirs = CamController.__setting_storage[CamController.__current_setting.get_name()].get_pic_dir()
+            for pic_dir in pic_dirs:
+                year = str(now.year)
+                month = str(now.month)
+                day = str(now.day)
+                hour = str(now.hour)
+                lastdir = pic_dir
+                current_dir = os.path.join(lastdir, year)
+                if not os.path.exists(current_dir):
+                    os.mkdir(current_dir)
+                lastdir = current_dir
+                current_dir = os.path.join(lastdir, month)
+                if not os.path.exists(current_dir):
+                    os.mkdir(current_dir)
+                lastdir = current_dir
+                current_dir = os.path.join(lastdir, day)
+                if not os.path.exists(current_dir):
+                    os.mkdir(current_dir)
+                lastdir = current_dir
+                current_dir = os.path.join(lastdir, hour)
+                if not os.path.exists(current_dir):
+                    os.mkdir(current_dir)
+                lastdir = current_dir
+                current_dir = os.path.join(lastdir, host)
+                if not os.path.exists(current_dir):
+                    os.mkdir(current_dir)
+                out = open(current_dir + os.sep + day + '.' + month + '.' + year + ' ' +
+                           str(now.hour) + '.' + str(now.minute) + '.' + str(now.second)
+                           + ".jpg", "wb")
+                out.write(snapshot.content)
+                out.close()
+                print 'Thread: ' + th_name + ' finish ' + str(datetime.datetime.now())
+        else:
+            print 'snapshot is None'
+            print 'Thread: ' + th_name + ' failed finish ' + str(datetime.datetime.now())
 
     @staticmethod
     def get_settings():
