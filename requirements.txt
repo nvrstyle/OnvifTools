@@ -5,4 +5,4 @@ onvif==0.2.0
 requests==2.22.0
 suds==0.4
 suds-passworddigest==0.1.2
-urllib3==1.25.6
+urllib3==1.26.5
